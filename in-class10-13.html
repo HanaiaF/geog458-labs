@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='utf-8' />
+    <title>my First Map</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%;}
+        #marker {
+        background-image: url('https://docs.mapbox.com/mapbox-gl-js/assets/washington-monument.jpg');
+        background-size: cover;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        cursor: pointer;
+        }
+        .mapboxgl-popup {
+            max-width: 200px;}
+    </style>
+</head>
+<body>
+   <div id='map'></div>
+   <script>
+      //Add the mapbox key to link the project with our account and interface.
+      mapboxgl.accessToken = 'pk.eyJ1IjoiaGZzdHVkZW50IiwiYSI6ImNtdXpxaTVlczAwYW4yd3B4c3RoMXh2czIifQ.DIdwNJeREpIefJYzTjhpGg';
+      
+      //Initialize a new mapbox map with the specified center and zoom level.  
+      const mymap = new mapboxgl.Map({
+            container: 'map',
+             style: 'mapbox://styles/mapbox/satellite-streets-v12',
+             projection: 'globe', //Display the map as a globe since satellite-v9 defaults to Mercator
+            center: [-122.307814, 47.653817],
+            zoom:7
+      });
+      //Link GEOJSON Data
+       mymap.on('style.load', () => {
+        mymap.setFog({}); // Set the default atmosphere style
+         });
+       
+        mymap.on('load', () => {
+        mymap.addSource('earthquakes', {
+            type: 'geojson',
+            // Use a URL for the value for the `data` property.
+            data: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson'
+        });
+        mymap.addLayer({
+            'id': 'earthquakes-layer',
+           'type': 'circle',
+            'source': 'earthquakes',
+            'paint': {
+                'circle-radius': ['*', 2, ['get', 'mag']],
+                'circle-stroke-width': 2,
+                'circle-color': 'red',
+                'circle-stroke-color': 'white'
+                     }
+                    });
+        });
+
+
+
+      // create DOM element for the marker
+              const el = document.createElement('div');
+                  el.id = 'marker';
+            
+              const marker1 =  new mapboxgl.Marker(el)
+                                          .setLngLat([-122.307814, 47.653817])
+                                          .setPopup(new mapboxgl.Popup().setText("Type beat"))
+                                          .addTo(mymap);
+
+      //Sets the styling for the map when the website loads.
+      mymap.on('style.load', () => {
+         mymap.setConfigProperty('basemap', 'lightPreset', 'dusk');
+         mymap.setConfigProperty('basemap', 'showPointOfInterestLabels', false);
+      });
+// code from the next step will go here!
+      mymap.addControl(new mapboxgl.FullscreenControl());
+      mymap.addControl(new mapboxgl.NavigationControl());
+</script>
+</body>
+</html>

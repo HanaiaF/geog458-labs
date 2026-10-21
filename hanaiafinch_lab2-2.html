@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Global City Population Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        #legend {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 150px;
+            background: #eaeedf;
+            margin-right: 20px;
+            margin-bottom: 40px;
+            padding: 10px 20px 10px 10px;
+            border-radius: 3px;
+            text-align: center;
+        }      
+
+        .break {
+            position: relative;
+            margin: 0;
+            padding: 0;
+        }   
+
+        .dot {
+            display: inline-block;
+            margin-top: 5px;
+            border-radius: 50%;
+            opacity: 0.6;
+        }      
+
+        .dot-label {
+            position: absolute;
+            top: 0;
+            right: 0;
+            font-style: italic;
+        }
+
+        #legend a {
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="legend"></div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiaGZzdHVkZW50IiwiYSI6ImNtdXpxaTVlczAwYW4yd3B4c3RoMXh2czIifQ.DIdwNJeREpIefJYzTjhpGg';
+        const mymap = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/navigation-day-v1',
+            projection: 'globe',
+            center: [-96, 37.8],
+            zoom: 1
+        });
+        mymap.on('load', () => {
+          mymap.addSource('population', {
+          type: 'geojson',
+          data: 'data/world-cities.geojson'
+          });
+          //For my global population map, the style choices I made were to promote readability and aesthetics. 
+          // I chose a purple gradient to compliment the green background of the map. 
+          // My classification method was Natural Breaks which I obtained by loading the geoJSON file into QGIS and classifying it.
+          // After classifying, I filtered out the cities that classified as megacities (population >= 10000000) and made them their own layer with a darker color on the map.
+          // I believe these choices help make the map readable and improve the aesthetics.
+          mymap.addLayer({
+            'id': 'population-layer',
+            'type': 'circle',
+            'source': 'population',
+            'paint': {
+                'circle-radius': [
+                'interpolate', ['linear'],
+                ['to-number', ['get', 'population'], 0],
+                    15000,   2,
+                    412000,  3,
+                    1733000,    4,
+                    4931000,  6,
+                    8000000,    8,
+                ],
+                'circle-stroke-width': 0.6,
+                'circle-color': [
+                'interpolate', ['linear'],
+                ['to-number', ['get', 'population'], 0],
+                    15000,    '#cfc8e1',
+                    412000,  '#b3b0d4',
+                    1733000,    '#9e9ac8',
+                    4931000,  '#756bb1',
+                    8000000,    '#54278f',
+                ],
+                'circle-stroke-color': 'white',
+                'circle-opacity': 1
+                }
+            });
+            mymap.addLayer({
+            id: 'megacities',
+            type: 'circle',
+            source: 'population',
+
+            filter: [
+              '>=',
+                ['to-number', ['get', 'population'], 0],
+                1000000
+            ],
+
+            paint: {
+              'circle-radius': 10,
+              'circle-color': '#acbb7e',
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 1
+            }
+            });
+            
+            mymap.on('click', 'population-layer', (event) => {
+            const feature = event.features[0];
+            const coordinates = feature.geometry.coordinates.slice(0, 2);
+
+            new mapboxgl.Popup()
+                .setLngLat(coordinates)
+                .setHTML(`<strong>City: </strong> ${feature.properties.city} <strong>Population: </strong> ${feature.properties.population}`)
+                .addTo(mymap);
+            });
+        });
+
+        const legend = document.getElementById('legend');
+        const grades = [15000, 1733000, 8000000, 10000000];
+        const radii = [2, 4, 8, 10];
+        const colors = ['#cfc8e1', '#9e9ac8', '#54278f', '#acbb7e'];
+        const labels = ['<strong>Population</strong>'];
+
+        for (let i = 0; i < grades.length; i++) {
+            const value = grades[i];
+            const diameter = 2 * radii[i];
+
+            labels.push(
+                '<p class="break"><i class="dot" style="background:' + colors[i] +
+                '; width:' + diameter + 'px; height:' + diameter +
+                'px;"></i> <span class="dot-label" style="top:' +
+                diameter / 2 + 'px;">' + value + '</span></p>'
+            );
+        }
+
+        const source =
+            '<p style="text-align:right; font-size:10pt;">Source: ' +
+            '<a href="https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-populated-places/">Natural Earth</a></p>';
+
+        legend.innerHTML = labels.join('') + source;
+    </script>
+</body>
+</html>
