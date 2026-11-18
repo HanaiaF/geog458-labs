@@ -47,7 +47,7 @@
 <body>
   <aside id="sidebar">
     <h1>Smart Dashboard</h1>
-    <p>Washington county population, 2000–2020</p>
+    <p>Washington County Population Percentage Change 2000-2020</p>
     <p class="muted">Hover to preview. Click a county to pin it. Click empty map space or outside the map to unpin it.</p>
     <div id="county-filter">
       <label for="county-search">Find a county</label>
@@ -69,7 +69,7 @@
   </aside>
   <main id="map-panel" aria-label="Washington county population map">
     <div id="map"></div>
-    <div id="legend"><h2>Population in 2020</h2></div>
+    <div id="legend"><h2>Population % Change Since 2000</h2></div>
   </main>
   <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoiaGZzdHVkZW50IiwiYSI6ImNtdXpxaTVlczAwYW4yd3B4c3RoMXh2czIifQ.DIdwNJeREpIefJYzTjhpGg';
@@ -87,15 +87,23 @@
       try {
         // 1. Data and the supplied choropleth: already working in the Starter.
         const data = await d3.json('./data/WAcounties.geojson');
+        //find percentage change for each county
+        data.features.forEach(feature => {
+        const pop2000 = +feature.properties.POP2000;
+        const pop2020 = +feature.properties.POP2020;
+
+        feature.properties.POP_CHANGE =
+          ((pop2020 - pop2000) / pop2000) * 100;
+        });
         const counties = data.features;
         const classes = [
-          {min: 0, color: '#edf8fb', label: 'Under 25,000'},
-          {min: 25000, color: '#b3cde3', label: '25,000–99,999'},
-          {min: 100000, color: '#8c96c6', label: '100,000–499,999'},
-          {min: 500000, color: '#8856a7', label: '500,000–999,999'},
-          {min: 1000000, color: '#810f7c', label: '1,000,000 or more'}
+        {min: -100, color: '#d73027', label: 'Population decline'},
+        {min: 0, color: '#fc8d59', label: '0%–9.9%'},
+        {min: 10, color: '#fee08b', label: '10%–19.9%'},
+        {min: 20, color: '#d9ef8b', label: '20%–29.9%'},
+        {min: 30, color: '#1a9850', label: '30% or more'}
         ];
-        const fillColor = ['step', ['get', 'POP2020'], classes[0].color];
+        const fillColor = ['step', ['get', 'POP_CHANGE'], classes[0].color];
         classes.slice(1).forEach(group => fillColor.push(group.min, group.color));
         map.addSource('population', {type: 'geojson', data: data});
         map.addLayer({id: 'county-fill', type: 'fill', source: 'population',
@@ -114,6 +122,12 @@
         let matchingCounties = counties;
         let hoveredCounty = null;
         let selectedCounty = null;
+
+        //create popup
+        const countyPopup = new mapboxgl.Popup({
+        closeButton: false,
+        closeOnClick: false
+        });
         // Empty connections keep the Starter runnable before Steps 2 and 4.
         let highlightCounties = function(features) {};
         let updateLinkedChart = function(features) {};
@@ -137,7 +151,6 @@
           highlightCounties(features);
           updateLinkedChart(features);
         }
-
         // BEGIN STEP 2: HOVER + CLICK
         // Give the current input counties full emphasis; retain the rest as context.
 highlightCounties = function(features) {
@@ -153,6 +166,16 @@ map.on('mousemove', 'county-fill', function(event) {
   const id = event.features[0].properties.OBJECTID;
   const feature = matchingCounties.find(county => county.properties.OBJECTID === id) || null;
   map.getCanvas().style.cursor = feature ? 'pointer' : '';
+  //code for the county popup
+  if (feature) {
+    countyPopup
+      .setLngLat(event.lngLat)
+      .setHTML(`
+        <strong>County:</strong> ${feature.properties.NAMELSAD10}<br>
+        <strong>Population (2020):</strong> ${(feature.properties.POP2020)}<br>
+        <strong>Population % Change:</strong> ${(feature.properties.POP_CHANGE).toFixed(2)}`)
+      .addTo(map);
+  }
   if (selectedCounty || hoveredCounty === feature) return;
   hoveredCounty = feature;
   updateDashboard();
@@ -160,6 +183,7 @@ map.on('mousemove', 'county-fill', function(event) {
 
 map.on('mouseleave', 'county-fill', function() {
   map.getCanvas().style.cursor = '';
+  countyPopup.remove();
   if (selectedCounty || !hoveredCounty) return;
   hoveredCounty = null;
   updateDashboard();
@@ -307,6 +331,7 @@ updateLinkedChart = function(features) {
     .text(d => d.year + ': ' + d3.format(',')(d.population));
 };
         // END STEP 4
+
 
         updateDashboard();
         document.getElementById('status').textContent = counties.length + ' counties loaded.';
